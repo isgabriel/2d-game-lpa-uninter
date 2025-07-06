@@ -214,6 +214,34 @@ class Fire(Object):
             self.animation_count = 0
 
 
+def build_platforms(block_size: int) -> tuple:
+    platforms = []
+    pattern = [("single", 1), ("platform", 5), ("single_down", 1), ("double_up", 2)]
+
+    x = block_size * 5
+    while len(platforms) < 25:
+        for kind, n in pattern:
+            if kind == "single":
+                platforms.append(Block(x, HEIGHT - block_size * 3, block_size))
+                x += block_size * 1.5
+            elif kind == "platform":
+                for i in range(n):
+                    platforms.append(
+                        Block(x + i * block_size, HEIGHT - block_size * 4, block_size)
+                    )
+                x += block_size * (n + 1.5)
+            elif kind == "single_down":
+                platforms.append(Block(x, HEIGHT - block_size * 1, block_size))
+                x += block_size * 2
+            elif kind == "double_up":
+                platforms.append(Block(x, HEIGHT - block_size * 4, block_size))
+                platforms.append(
+                    Block(x + block_size, HEIGHT - block_size * 4, block_size)
+                )
+                x += block_size * 2
+    return platforms, x
+
+
 def draw(window, background, bg_image, player, objects, offset_x):
     for tile in background:
         window.blit(bg_image, tile)
@@ -276,22 +304,71 @@ def handle_move(player, objects):
             player.make_hit()
 
 
+class EndSign(Object):
+    def __init__(self, x, y):
+        super().__init__(x, y, 100, 50)
+        self.font = pygame.font.SysFont("Arial", 36, bold=True)
+        self.text = self.font.render("FIM", True, (255, 255, 255))
+        self.image.fill((0, 0, 0, 0))
+        text_rect = self.text.get_rect(center=(self.width // 2, self.height // 2))
+        self.image.blit(self.text, text_rect)
+        self.mask = pygame.mask.from_surface(self.image)
+
+
 def main(window):
     clock = pygame.time.Clock()
     background, bg_image = get_background("Pink.png")
 
     block_size = 96
 
-    player = Player(100, 100, 50, 50)
+    player = Player(0, 100, 50, 50)
     fire = Fire(100, HEIGHT - block_size - 64, 16, 32)
     fire.on()
+
+    platforms, last_platform_x = build_platforms(block_size)
 
     floor = [
         Block(i * block_size, HEIGHT - block_size, block_size)
         for i in range(-WIDTH // block_size, (WIDTH * 2) // block_size)
     ]
 
-    objects = [*floor, fire]
+    extended_floor = []
+    extended_floor_len = 10
+
+    for i in range(extended_floor_len):
+        extended_floor.append(
+            Block(last_platform_x + i * block_size, HEIGHT - block_size, block_size)
+        )
+
+    end_x = last_platform_x + (extended_floor_len - 1) * block_size
+    end_y = HEIGHT - block_size - 50
+
+    end_sign = EndSign(end_x, end_y)
+
+    wall_x = last_platform_x + extended_floor_len * block_size
+
+    floor_y = HEIGHT - block_size
+
+    ceiling_y = HEIGHT - block_size * 4
+
+    wall_height_blocks = 8
+
+    wall_blocks = []
+    for i in range(wall_height_blocks):
+        block_y = floor_y - (i + 1) * block_size
+        wall_blocks.append(Block(wall_x, block_y, block_size))
+
+    objects = [
+        *floor,
+        *platforms,
+        *extended_floor,
+        *wall_blocks,
+        end_sign,
+        Block(0, HEIGHT - block_size * 2, block_size),
+        Block(block_size * 2, HEIGHT - block_size * 3, block_size),
+        Block(block_size * 3, HEIGHT - block_size * 4, block_size),
+        fire,
+    ]
 
     offset_x = 0
     scroll_area_width = 200
